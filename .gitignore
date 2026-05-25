@@ -16,3 +16,6 @@ __pycache__/
 *.njsproj
 *.sln
 *.swp
+
+# Build and package outputs
+*.zip
