@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gemini Usage Bar",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Displays real-time Gemini usage limits (current and weekly) directly in the Gemini interface.",
   "icons": {
     "16": "icon.png",

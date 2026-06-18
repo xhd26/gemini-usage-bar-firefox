@@ -54,7 +54,7 @@ body.dark :root {
   left: 68px;
   font-family: var(--gt-font-family);
   user-select: none;
-  z-index: 9999;
+  z-index: 2147483647;
   transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -273,30 +273,29 @@ body.dark :root {
   display: none !important;
 }
 
-/* Mini Eye Toggle Button (floating when hidden) */
+/* Mini Eye Toggle Button (inside top-left container) */
 .gt-eye-toggle-btn {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 36px;
-  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: var(--gt-bg-pill);
   border: 1px solid var(--gt-border);
   box-shadow: var(--gt-shadow);
   color: var(--gt-text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   cursor: pointer;
-  z-index: 9998;
   transition: var(--gt-transition);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .gt-eye-toggle-btn:hover {
   transform: scale(1.05);
   color: var(--gt-text-primary);
   border-color: rgba(26, 115, 232, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), var(--gt-shadow);
 }
 
 .gt-eye-toggle-btn svg {

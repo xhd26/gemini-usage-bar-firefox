@@ -13,6 +13,7 @@
   let isGeneratingResponse = false;
   let iframeElement = null;
   let pollInterval = null;
+  let cachedSidebarElement = null;
 
   // Load visibility settings on startup
   chrome.storage.local.get({ usageBarVisible: true }, (result) => {
@@ -40,35 +41,89 @@
   function extractDataFromDocument(doc) {
     if (!doc) return null;
 
-    const currentEl = doc.querySelector('[data-test-id="gxu-currently"]') || doc.querySelector('.gxu-currently');
-    const weeklyEl = doc.querySelector('[data-test-id="gxu-weekly"]') || doc.querySelector('.gxu-weekly');
-
-    if (!currentEl && !weeklyEl) {
-      return null; // Elements not rendered yet
-    }
-
     let currentPercent = null;
     let currentReset = "";
     let weeklyPercent = null;
     let weeklyReset = "";
 
-    // Parse current limits
+    // 1. Selector-based search
+    const currentEl = doc.querySelector('[data-test-id="gxu-currently"]') || doc.querySelector('.gxu-currently');
+    const weeklyEl = doc.querySelector('[data-test-id="gxu-weekly"]') || doc.querySelector('.gxu-weekly');
+
     if (currentEl) {
       const texts = Array.from(currentEl.querySelectorAll('p, div, span')).map(el => el.textContent.trim());
       for (const text of texts) {
-        const match = text.match(/(\d+)%\s*used/i);
-        if (match) currentPercent = parseInt(match[1], 10);
-        if (text.toLowerCase().startsWith('resets')) currentReset = text;
+        const match = text.match(/(\d+)%\s*used/i) || text.match(/(\d+)%/);
+        if (match && currentPercent === null) currentPercent = parseInt(match[1], 10);
+        if (text.toLowerCase().startsWith('resets') || text.toLowerCase().includes('reset')) currentReset = text;
       }
     }
 
-    // Parse weekly limits
     if (weeklyEl) {
       const texts = Array.from(weeklyEl.querySelectorAll('p, div, span')).map(el => el.textContent.trim());
       for (const text of texts) {
-        const match = text.match(/(\d+)%\s*used/i);
-        if (match) weeklyPercent = parseInt(match[1], 10);
-        if (text.toLowerCase().startsWith('resets')) weeklyReset = text;
+        const match = text.match(/(\d+)%\s*used/i) || text.match(/(\d+)%/);
+        if (match && weeklyPercent === null) weeklyPercent = parseInt(match[1], 10);
+        if (text.toLowerCase().startsWith('resets') || text.toLowerCase().includes('reset')) weeklyReset = text;
+      }
+    }
+
+    // 2. Text-search fallback if selectors fail or are incomplete
+    if (currentPercent === null || weeklyPercent === null) {
+      const elements = Array.from(doc.querySelectorAll('p, div, span, h1, h2, h3, h4, section'));
+      const items = [];
+      for (const el of elements) {
+        if (el.children.length === 0 || Array.from(el.childNodes).some(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim().length > 0)) {
+          const text = el.textContent.trim();
+          if (text) items.push({ el, text });
+        }
+      }
+
+      for (const item of items) {
+        const percentMatch = item.text.match(/(\d+)%\s*used/i) || item.text.match(/(\d+)%/);
+        if (percentMatch) {
+          const val = parseInt(percentMatch[1], 10);
+          let isWeekly = false;
+          let parent = item.el;
+          let depth = 0;
+          while (parent && parent !== doc.body && depth < 5) {
+            const parentText = parent.textContent.toLowerCase();
+            if (parentText.includes('weekly') || parentText.includes('week') || parentText.includes('7-day') || parentText.includes('7 days')) {
+              isWeekly = true;
+              break;
+            }
+            parent = parent.parentElement;
+            depth++;
+          }
+
+          if (isWeekly) {
+            if (weeklyPercent === null) weeklyPercent = val;
+          } else {
+            if (currentPercent === null) currentPercent = val;
+          }
+        }
+
+        const isResetText = item.text.toLowerCase().includes('reset') || item.text.toLowerCase().startsWith('resets');
+        if (isResetText) {
+          let isWeekly = false;
+          let parent = item.el;
+          let depth = 0;
+          while (parent && parent !== doc.body && depth < 5) {
+            const parentText = parent.textContent.toLowerCase();
+            if (parentText.includes('weekly') || parentText.includes('week') || parentText.includes('7-day') || parentText.includes('7 days')) {
+              isWeekly = true;
+              break;
+            }
+            parent = parent.parentElement;
+            depth++;
+          }
+
+          if (isWeekly) {
+            if (!weeklyReset) weeklyReset = item.text;
+          } else {
+            if (!currentReset) currentReset = item.text;
+          }
+        }
       }
     }
 
@@ -210,6 +265,11 @@
           <div class="gt-pill-indicator" id="gt-pill-indicator"></div>
         </div>
       </div>
+      <button class="gt-eye-toggle-btn gt-hidden" id="gt-eye-toggle" title="Show usage bar (Alt+U)">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+        </svg>
+      </button>
       <div class="gemini-usage-dropdown" id="gt-dropdown">
         <div class="gt-dropdown-header">
           <h3>Gemini Usage</h3>
@@ -265,6 +325,13 @@
       toggleVisibility(false);
     });
 
+    // Event: Click on eye toggle button to show the usage bar
+    const eyeBtn = container.querySelector('#gt-eye-toggle');
+    eyeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleVisibility(true);
+    });
+
     // Event: Manual refresh button click
     const refreshBtn = container.querySelector('#gt-refresh-btn');
     refreshBtn.addEventListener('click', (e) => {
@@ -286,100 +353,60 @@
     return container;
   }
 
-  // Create the eye toggle button (shown when pill is hidden)
-  function getOrCreateEyeBtn() {
-    let eyeBtn = document.getElementById('gt-eye-toggle');
-    if (eyeBtn) return eyeBtn;
-
-    eyeBtn = document.createElement('button');
-    eyeBtn.id = 'gt-eye-toggle';
-    eyeBtn.className = 'gt-eye-toggle-btn gt-hidden';
-    eyeBtn.title = 'Show usage bar (Alt+U)';
-    eyeBtn.innerHTML = `
-      <svg viewBox="0 0 24 24">
-        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-      </svg>
-    `;
-
-    eyeBtn.addEventListener('click', () => {
-      toggleVisibility(true);
-    });
-
-    document.body.appendChild(eyeBtn);
-    return eyeBtn;
-  }
-
   // Set UI loading state
   function setPillLoading(isLoading) {
     const container = getOrCreateUI();
     if (isLoading) {
-      container.classList.add('gt-loading');
+      if (!container.classList.contains('gt-loading')) {
+        container.classList.add('gt-loading');
+      }
     } else {
-      container.classList.remove('gt-loading');
+      if (container.classList.contains('gt-loading')) {
+        container.classList.remove('gt-loading');
+      }
     }
 
     const refreshBtn = document.getElementById('gt-refresh-btn');
     if (refreshBtn) {
       if (isLoading) {
-        refreshBtn.classList.add('spinning');
+        if (!refreshBtn.classList.contains('spinning')) {
+          refreshBtn.classList.add('spinning');
+        }
       } else {
-        refreshBtn.classList.remove('spinning');
+        if (refreshBtn.classList.contains('spinning')) {
+          refreshBtn.classList.remove('spinning');
+        }
       }
     }
   }
 
   // Find the sidebar element in a completely robust way
   function findSidebarElement() {
-    // 1. Search semantic aside
-    const aside = document.querySelector('aside');
-    if (aside) return aside;
-    
-    // 2. Search common selectors
-    const selectors = [
-      'gai-sidebar',
-      'gai-sidenav',
-      'mat-sidenav',
-      '.sidebar',
-      '.navigation-wrapper',
-      'nav',
-      '[role="navigation"]'
-    ];
-    for (const selector of selectors) {
-      const el = document.querySelector(selector);
-      if (el) return el;
+    if (cachedSidebarElement && cachedSidebarElement.isConnected) {
+      return cachedSidebarElement;
     }
-    
-    // 3. Search by content or structure (sidebar contains links like "Gems" or "Library")
-    const gemsText = Array.from(document.querySelectorAll('*')).find(el => 
-      el.childNodes.length === 1 && 
-      el.childNodes[0].nodeType === Node.TEXT_NODE && 
-      (el.textContent.trim() === 'Gems' || el.textContent.trim() === 'Library')
-    );
-    if (gemsText) {
-      let curr = gemsText;
-      while (curr && curr !== document.body) {
-        const rect = curr.getBoundingClientRect();
-        if (rect.height > window.innerHeight * 0.6 && rect.width > 100 && rect.left < 50) {
-          return curr;
-        }
-        curr = curr.parentElement;
+
+    // Search for the vertical sidebar container on the left side of the screen
+    const allElements = document.querySelectorAll('*');
+    const candidates = [];
+    const minWidth = 40;
+    const maxWidth = Math.min(450, window.innerWidth * 0.5);
+
+    for (const el of allElements) {
+      const rect = el.getBoundingClientRect();
+      if (rect.left <= 15 && 
+          rect.height >= window.innerHeight * 0.7 && 
+          rect.width >= minWidth && rect.width <= maxWidth) {
+        candidates.push(el);
       }
     }
-    
-    // 4. Look for element with class/id containing "sidebar" or "navigation" or "sidenav"
-    const allEls = document.querySelectorAll('*');
-    for (const el of allEls) {
-      const className = typeof el.className === 'string' ? el.className.toLowerCase() : '';
-      const id = typeof el.id === 'string' ? el.id.toLowerCase() : '';
-      const tagName = el.tagName.toLowerCase();
-      
-      if (tagName.includes('sidebar') || tagName.includes('sidenav') || tagName.includes('navigation') ||
-          className.includes('sidebar') || className.includes('sidenav') || className.includes('navigation') ||
-          id.includes('sidebar') || id.includes('sidenav')) {
-        const rect = el.getBoundingClientRect();
-        if (rect.height > window.innerHeight * 0.5 && rect.width > 50 && rect.left < 50) {
-          return el;
-        }
+
+    if (candidates.length > 0) {
+      // Find the outermost matching container (the element not contained in any other candidate)
+      const outermost = candidates.find(c => !candidates.some(other => other !== c && other.contains(c)));
+      if (outermost) {
+        cachedSidebarElement = outermost;
+        return outermost;
       }
     }
     
@@ -396,32 +423,27 @@
     
     if (sidebar) {
       const rect = sidebar.getBoundingClientRect();
-      // If the sidebar is visible on screen and has width, use its right coordinate
-      if (rect.width > 100 && rect.right > 100 && rect.left < 50) {
+      // A sidebar is considered open/visible if it has a width > 100px,
+      // its right edge is > 100px, its left edge is near the left edge (< 50px),
+      // and it doesn't span the entire width of the viewport (less than 450px).
+      if (rect.width > 100 && rect.width < 450 && rect.right > 100 && rect.left < 50) {
         sidebarRight = rect.right;
       }
     }
 
-    if (sidebarRight > 0) {
-      container.style.left = `${sidebarRight + 12}px`;
-    } else {
-      // Sidebar is collapsed. We align it nicely to the right of the collapsed menu button.
-      container.style.left = '68px';
+    const newLeft = sidebarRight > 0 ? `${sidebarRight + 12}px` : '68px';
+    if (container.style.left !== newLeft) {
+      container.style.left = newLeft;
     }
   }
 
   // Mount UI in the header or fallback
   function mountUI() {
     const container = getOrCreateUI();
-    const eyeBtn = getOrCreateEyeBtn();
 
     // Since we use always-fixed positioning, we mount directly to document.body
     if (container.parentElement !== document.body) {
       document.body.appendChild(container);
-    }
-
-    if (eyeBtn.parentElement !== document.body) {
-      document.body.appendChild(eyeBtn);
     }
 
     updateVisibilityDOM();
@@ -485,22 +507,27 @@
   // Sync visibility state with the DOM
   function updateVisibilityDOM() {
     const container = document.getElementById('gemini-usage-pill-container');
-    const eyeBtn = document.getElementById('gt-eye-toggle');
+    if (!container) return;
 
-    if (container) {
-      if (isPillVisible) {
-        container.classList.remove('gt-hidden');
-      } else {
-        container.classList.add('gt-hidden');
-        container.classList.remove('dropdown-open');
+    const pill = container.querySelector('#gt-pill-btn');
+    const eyeBtn = container.querySelector('#gt-eye-toggle');
+
+    if (isPillVisible) {
+      if (pill && pill.classList.contains('gt-hidden')) {
+        pill.classList.remove('gt-hidden');
       }
-    }
-
-    if (eyeBtn) {
-      if (isPillVisible) {
+      if (eyeBtn && !eyeBtn.classList.contains('gt-hidden')) {
         eyeBtn.classList.add('gt-hidden');
-      } else {
+      }
+    } else {
+      if (pill && !pill.classList.contains('gt-hidden')) {
+        pill.classList.add('gt-hidden');
+      }
+      if (eyeBtn && eyeBtn.classList.contains('gt-hidden')) {
         eyeBtn.classList.remove('gt-hidden');
+      }
+      if (container.classList.contains('dropdown-open')) {
+        container.classList.remove('dropdown-open');
       }
     }
   }
