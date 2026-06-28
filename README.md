@@ -46,22 +46,11 @@ Everything else — `background.js`, `content.js`, `styles.css` — is untouched
 
 ## Installation
 
-### Temporary (Developer Mode)
+Install directly from the Mozilla Add-ons store — no setup required:
 
-1. Clone or download this repository.
-2. Open Firefox and navigate to `about:debugging`.
-3. Click **This Firefox** in the left sidebar.
-4. Click **Load Temporary Add-on**.
-5. Select any file inside the folder (e.g. `manifest.json`).
-6. Open [Google Gemini](https://gemini.google.com/) and the usage pill will appear in the top-left corner.
-
-> **Note**: Temporary add-ons are removed when Firefox is closed. For a permanent install, the extension would need to be signed by Mozilla via [addons.mozilla.org](https://addons.mozilla.org).
-
-### Permanent (Unsigned — Developer/Nightly Only)
-
-1. Navigate to `about:config` in Firefox.
-2. Set `xpinstall.signatures.required` to `false`.
-3. Package the folder as a `.zip`, rename it to `.xpi`, and drag it into Firefox.
+1. Visit the [Gemini Usage Bar page on Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/gemini-usage-bar/)
+2. Click **Add to Firefox**
+3. Open [Google Gemini](https://gemini.google.com/) and the usage pill will appear in the top-left corner
 
 ---
 
