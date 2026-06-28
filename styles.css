@@ -1,0 +1,305 @@
+/* Gemini Tweaks - Premium Styles */
+
+/* Base font and variables */
+:root {
+  --gt-font-family: "Google Sans", "Outfit", "Inter", Roboto, sans-serif;
+  --gt-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Light Mode Colors (default) */
+  --gt-bg-pill: rgba(255, 255, 255, 0.7);
+  --gt-bg-dropdown: rgba(255, 255, 255, 0.9);
+  --gt-border: rgba(0, 0, 0, 0.08);
+  --gt-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08), 0 2px 8px 0 rgba(0, 0, 0, 0.04);
+  --gt-text-primary: #1f1f1f;
+  --gt-text-secondary: #5f6368;
+  --gt-progress-track: rgba(0, 0, 0, 0.06);
+  --gt-accent-low: #34a853;    /* Green */
+  --gt-accent-medium: #fbbc04; /* Yellow */
+  --gt-accent-high: #ea4335;   /* Red */
+  --gt-accent-weekly: #1a73e8; /* Blue */
+}
+
+/* Dark Mode adaptation */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --gt-bg-pill: rgba(30, 31, 32, 0.75);
+    --gt-bg-dropdown: rgba(30, 31, 32, 0.95);
+    --gt-border: rgba(255, 255, 255, 0.08);
+    --gt-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37), 0 2px 8px 0 rgba(0, 0, 0, 0.2);
+    --gt-text-primary: #e3e3e3;
+    --gt-text-secondary: #c4c7c5;
+    --gt-progress-track: rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Native dark theme support by inspecting class on html/body */
+html[theme="dark"] :root,
+body.dark-theme :root,
+body.dark :root {
+  --gt-bg-pill: rgba(30, 31, 32, 0.75);
+  --gt-bg-dropdown: rgba(30, 31, 32, 0.95);
+  --gt-border: rgba(255, 255, 255, 0.08);
+  --gt-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37), 0 2px 8px 0 rgba(0, 0, 0, 0.2);
+  --gt-text-primary: #e3e3e3;
+  --gt-text-secondary: #c4c7c5;
+  --gt-progress-track: rgba(255, 255, 255, 0.1);
+}
+
+/* The Injected Usage Pill Container */
+.gemini-usage-pill-container {
+  display: inline-flex;
+  align-items: center;
+  position: fixed;
+  top: 14px;
+  left: 68px;
+  font-family: var(--gt-font-family);
+  user-select: none;
+  z-index: 2147483647;
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* The Pill Button */
+.gemini-usage-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: var(--gt-bg-pill);
+  border: 1px solid var(--gt-border);
+  box-shadow: var(--gt-shadow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  cursor: pointer;
+  transition: var(--gt-transition);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gt-text-primary);
+}
+
+.gemini-usage-pill:hover {
+  transform: translateY(-1px);
+  border-color: rgba(26, 115, 232, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), var(--gt-shadow);
+}
+
+.gemini-usage-pill:active {
+  transform: translateY(0);
+}
+
+/* Pill Details */
+.gt-pill-label {
+  color: var(--gt-text-secondary);
+  font-weight: 400;
+}
+
+.gt-pill-value {
+  font-weight: 600;
+}
+
+/* Mini Progress Bar inside Pill */
+.gt-pill-track {
+  width: 32px;
+  height: 4px;
+  background: var(--gt-progress-track);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.gt-pill-indicator {
+  height: 100%;
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  background-color: var(--gt-accent-low);
+}
+
+/* Loading state animation */
+.gt-loading .gt-pill-indicator {
+  width: 50% !important;
+  background: linear-gradient(90deg, var(--gt-progress-track) 25%, var(--gt-accent-weekly) 50%, var(--gt-progress-track) 75%);
+  background-size: 200% 100%;
+  animation: gt-loading-shimmer 1.5s infinite linear;
+}
+
+@keyframes gt-loading-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Dropdown Panel */
+.gemini-usage-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 260px;
+  background: var(--gt-bg-dropdown);
+  border: 1px solid var(--gt-border);
+  box-shadow: var(--gt-shadow);
+  border-radius: 16px;
+  padding: 16px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  opacity: 0;
+  transform: translateY(-8px) scale(0.95);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.gemini-usage-pill-container.dropdown-open .gemini-usage-dropdown {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+/* Dropdown Header */
+.gt-dropdown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--gt-border);
+  padding-bottom: 8px;
+}
+
+.gt-dropdown-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gt-text-primary);
+}
+
+.gt-close-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--gt-text-secondary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: var(--gt-transition);
+}
+
+.gt-close-btn:hover {
+  background: var(--gt-progress-track);
+  color: var(--gt-text-primary);
+}
+
+.gt-action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--gt-text-secondary);
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--gt-transition);
+}
+
+.gt-action-btn:hover {
+  background: var(--gt-progress-track);
+  color: var(--gt-text-primary);
+}
+
+.gt-action-btn svg {
+  fill: currentColor;
+  transition: transform 0.6s ease;
+}
+
+.gt-action-btn.spinning svg {
+  animation: gt-spin 1s linear infinite;
+}
+
+@keyframes gt-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Dropdown Sections */
+.gt-usage-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gt-section-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+}
+
+.gt-section-title {
+  font-weight: 500;
+  color: var(--gt-text-secondary);
+}
+
+.gt-section-value {
+  font-weight: 600;
+  color: var(--gt-text-primary);
+}
+
+/* Dropdown Progress Bars */
+.gt-dropdown-track {
+  width: 100%;
+  height: 8px;
+  background: var(--gt-progress-track);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.gt-dropdown-indicator {
+  height: 100%;
+  border-radius: 4px;
+  width: 0%;
+  transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+  background-color: var(--gt-accent-low);
+}
+
+.gt-reset-time {
+  font-size: 11px;
+  color: var(--gt-text-secondary);
+  margin-top: 2px;
+}
+
+/* Hidden Class */
+.gt-hidden {
+  display: none !important;
+}
+
+/* Mini Eye Toggle Button (inside top-left container) */
+.gt-eye-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--gt-bg-pill);
+  border: 1px solid var(--gt-border);
+  box-shadow: var(--gt-shadow);
+  color: var(--gt-text-secondary);
+  cursor: pointer;
+  transition: var(--gt-transition);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.gt-eye-toggle-btn:hover {
+  transform: scale(1.05);
+  color: var(--gt-text-primary);
+  border-color: rgba(26, 115, 232, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), var(--gt-shadow);
+}
+
+.gt-eye-toggle-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}

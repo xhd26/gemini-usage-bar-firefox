@@ -1,0 +1,22 @@
+# OS temporary files
+.DS_Store
+Thumbs.db
+
+# Python temporary files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Editor/IDE configurations
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Build and package outputs
+*.zip
+*.xpi
