@@ -28,12 +28,15 @@
     iframeElement = document.createElement('iframe');
     iframeElement.id = 'gemini-usage-iframe';
     iframeElement.src = 'https://gemini.google.com/usage';
-    iframeElement.style.position = 'absolute';
-    iframeElement.style.width = '0';
-    iframeElement.style.height = '0';
+    iframeElement.style.position = 'fixed';
+    iframeElement.style.top = '0';
+    iframeElement.style.left = '0';
+    iframeElement.style.width = '800px';
+    iframeElement.style.height = '600px';
     iframeElement.style.border = 'none';
-    iframeElement.style.visibility = 'hidden';
+    iframeElement.style.opacity = '0';
     iframeElement.style.pointerEvents = 'none';
+    iframeElement.style.zIndex = '-9999';
     document.body.appendChild(iframeElement);
   }
 
@@ -46,29 +49,66 @@
     let weeklyPercent = null;
     let weeklyReset = "";
 
-    // 1. Selector-based search
-    const currentEl = doc.querySelector('[data-test-id="gxu-currently"]') || doc.querySelector('.gxu-currently');
-    const weeklyEl = doc.querySelector('[data-test-id="gxu-weekly"]') || doc.querySelector('.gxu-weekly');
+    const allEls = Array.from(doc.querySelectorAll('div, span, p, h1, h2, h3, h4'));
 
-    if (currentEl) {
-      const texts = Array.from(currentEl.querySelectorAll('p, div, span')).map(el => el.textContent.trim());
-      for (const text of texts) {
-        const match = text.match(/(\d+)%\s*used/i) || text.match(/(\d+)%/);
-        if (match && currentPercent === null) currentPercent = parseInt(match[1], 10);
-        if (text.toLowerCase().startsWith('resets') || text.toLowerCase().includes('reset')) currentReset = text;
+    // Strategy 0: React/Stylex layout (Nov 2026+ redesign) — containers mix label + percent + reset in one element's textContent
+    for (const el of allEls) {
+      const text = el.textContent.trim();
+      if (!text || text.length > 500) continue;
+      const ltext = text.toLowerCase();
+
+      if (currentPercent === null && ltext.includes('current') && !ltext.includes('weekly') && ltext.includes('used')) {
+        const m = text.match(/(\d+)%\s*used/i);
+        if (m) currentPercent = parseInt(m[1], 10);
+      }
+      if (weeklyPercent === null && (ltext.includes('weekly') || ltext.includes('week limit')) && ltext.includes('used')) {
+        const m = text.match(/(\d+)%\s*used/i);
+        if (m) weeklyPercent = parseInt(m[1], 10);
       }
     }
 
-    if (weeklyEl) {
-      const texts = Array.from(weeklyEl.querySelectorAll('p, div, span')).map(el => el.textContent.trim());
-      for (const text of texts) {
-        const match = text.match(/(\d+)%\s*used/i) || text.match(/(\d+)%/);
-        if (match && weeklyPercent === null) weeklyPercent = parseInt(match[1], 10);
-        if (text.toLowerCase().startsWith('resets') || text.toLowerCase().includes('reset')) weeklyReset = text;
+    // Collect reset-time text from short standalone spans (e.g. "Resets at 18:53", "Resets on 3 Nov at 12:53")
+    if (!currentReset || !weeklyReset) {
+      for (const el of allEls) {
+        const text = el.textContent.trim();
+        if (text.length < 5 || text.length > 80) continue;
+        if (!text.toLowerCase().startsWith('resets')) continue;
+        let isWeekly = false;
+        let p = el.parentElement;
+        for (let i = 0; i < 8 && p && p !== doc.body; i++) {
+          if (p.textContent.toLowerCase().includes('weekly')) { isWeekly = true; break; }
+          p = p.parentElement;
+        }
+        if (isWeekly && !weeklyReset) weeklyReset = text;
+        else if (!isWeekly && !currentReset) currentReset = text;
       }
     }
 
-    // 2. Text-search fallback if selectors fail or are incomplete
+    // Strategy 1: Angular data-test-id / class selectors (pre-Nov 2026 layout)
+    if (currentPercent === null || weeklyPercent === null) {
+      const currentEl = doc.querySelector('[data-test-id="gxu-currently"]') || doc.querySelector('.gxu-currently');
+      const weeklyEl = doc.querySelector('[data-test-id="gxu-weekly"]') || doc.querySelector('.gxu-weekly');
+
+      if (currentEl) {
+        const texts = Array.from(currentEl.querySelectorAll('p, div, span')).map(el => el.textContent.trim());
+        for (const text of texts) {
+          const match = text.match(/(\d+)%\s*used/i) || text.match(/(\d+)%/);
+          if (match && currentPercent === null) currentPercent = parseInt(match[1], 10);
+          if (text.toLowerCase().startsWith('resets') || text.toLowerCase().includes('reset')) currentReset = currentReset || text;
+        }
+      }
+
+      if (weeklyEl) {
+        const texts = Array.from(weeklyEl.querySelectorAll('p, div, span')).map(el => el.textContent.trim());
+        for (const text of texts) {
+          const match = text.match(/(\d+)%\s*used/i) || text.match(/(\d+)%/);
+          if (match && weeklyPercent === null) weeklyPercent = parseInt(match[1], 10);
+          if (text.toLowerCase().startsWith('resets') || text.toLowerCase().includes('reset')) weeklyReset = weeklyReset || text;
+        }
+      }
+    }
+
+    // Strategy 2: Generic leaf-node text scan with ancestor context
     if (currentPercent === null || weeklyPercent === null) {
       const elements = Array.from(doc.querySelectorAll('p, div, span, h1, h2, h3, h4, section'));
       const items = [];
@@ -86,7 +126,7 @@
           let isWeekly = false;
           let parent = item.el;
           let depth = 0;
-          while (parent && parent !== doc.body && depth < 5) {
+          while (parent && parent !== doc.body && depth < 8) {
             const parentText = parent.textContent.toLowerCase();
             if (parentText.includes('weekly') || parentText.includes('week') || parentText.includes('7-day') || parentText.includes('7 days')) {
               isWeekly = true;
@@ -108,7 +148,7 @@
           let isWeekly = false;
           let parent = item.el;
           let depth = 0;
-          while (parent && parent !== doc.body && depth < 5) {
+          while (parent && parent !== doc.body && depth < 8) {
             const parentText = parent.textContent.toLowerCase();
             if (parentText.includes('weekly') || parentText.includes('week') || parentText.includes('7-day') || parentText.includes('7 days')) {
               isWeekly = true;
@@ -177,7 +217,7 @@
     iframeElement.src = 'https://gemini.google.com/usage?t=' + Date.now();
 
     let attempts = 0;
-    const maxAttempts = 30; // 15 seconds
+    const maxAttempts = 120; // 60 seconds
 
     pollInterval = setInterval(() => {
       attempts++;
@@ -212,7 +252,7 @@
       }
 
       if (attempts >= maxAttempts) {
-        console.error("[Gemini Tweaks] Failed to load and scrape usage page after 15s.");
+        console.error("[Gemini Tweaks] Failed to load and scrape usage page after 60s.");
         setPillLoading(false);
         clearInterval(pollInterval);
         pollInterval = null;
